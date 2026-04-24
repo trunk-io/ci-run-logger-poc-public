@@ -1,0 +1,16 @@
+{
+  "name": "ci-run-logger",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "ncc build src/pre.ts -o dist/pre && ncc build src/main.ts -o dist/main && ncc build src/post.ts -o dist/post"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vercel/ncc": "^0.38.1",
+    "typescript": "^5.0.0"
+  }
+}

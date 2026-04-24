@@ -1,0 +1,8 @@
+name: CI Run Logger
+description: POC action that logs CI run fields to validate data availability for flake detection ingestion
+runs:
+  using: node20
+  pre: dist/pre/index.js
+  main: dist/main/index.js
+  post: dist/post/index.js
+  post-if: always()
