@@ -25708,8 +25708,6 @@ core.saveState("run_id", process.env.GITHUB_RUN_ID ?? "");
 core.saveState("attempt", process.env.GITHUB_RUN_ATTEMPT ?? "");
 core.saveState("branch", branch ?? "");
 core.saveState("trigger", trigger);
-// env: block vars are not available in post hooks — save token to state so post can read it
-core.saveState("github_token", process.env.GITHUB_TOKEN ?? "");
 console.log(JSON.stringify({
     event: "ci_run_start",
     ci_job_name: process.env.GITHUB_JOB ?? null,

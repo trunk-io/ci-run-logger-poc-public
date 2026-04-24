@@ -40,8 +40,8 @@ function normalizeJobName(name: string): string {
 }
 
 async function fetchJobSteps(): Promise<ApiStep[] | null> {
-  // env: vars are not propagated to post hooks — token was saved to state in pre
-  const token = core.getState("github_token") || process.env.GITHUB_TOKEN;
+  // action inputs (INPUT_* env vars) persist to post hooks, unlike env: block vars
+  const token = core.getInput("token") || process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPOSITORY;
   const runId = core.getState("run_id");
   const attempt = core.getState("attempt");
