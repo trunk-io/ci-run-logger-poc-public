@@ -34,11 +34,17 @@ type JobsResponse = {
   jobs: ApiJob[];
 };
 
+// GITHUB_JOB is kebab-case (e.g. "unit-tests"); API name is Title Case ("Unit Tests")
+function normalizeJobName(name: string): string {
+  return name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
+}
+
 async function fetchJobSteps(): Promise<ApiStep[] | null> {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPOSITORY;
   const runId = core.getState("run_id");
   const attempt = core.getState("attempt");
+  const ciJobName = core.getState("ci_job_name");
 
   if (!token || !repo || !runId || !attempt) return null;
 
@@ -55,9 +61,23 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
     if (!res.ok) return null;
 
     const data = (await res.json()) as JobsResponse;
-    const job = data.jobs.find(
-      (j) => j.run_attempt === Number(attempt) && j.status === "in_progress",
-    );
+    const attemptNum = Number(attempt);
+
+    // Post hooks run after all steps complete, so the job may have transitioned
+    // from in_progress to completed by the time we query. Try in_progress first,
+    // then fall back to matching by job name (normalized from GITHUB_JOB).
+    const job =
+      data.jobs.find(
+        (j) => j.run_attempt === attemptNum && j.status === "in_progress",
+      ) ??
+      (ciJobName
+        ? data.jobs.find(
+            (j) =>
+              j.run_attempt === attemptNum &&
+              normalizeJobName(j.name) === normalizeJobName(ciJobName),
+          )
+        : undefined);
+
     return job?.steps ?? null;
   } catch {
     return null;
