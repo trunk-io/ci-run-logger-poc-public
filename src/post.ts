@@ -63,7 +63,7 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
     const data = (await res.json()) as JobsResponse;
     const attemptNum = Number(attempt);
 
-    console.error(
+    console.log(
       `[DEBUG] attempt=${attempt} (${typeof attempt}), attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`,
     );
 
@@ -82,7 +82,7 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
           )
         : undefined);
 
-    console.error(`[DEBUG] matched job: ${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
+    console.log(`[DEBUG] matched job: ${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
 
     return job?.steps ?? null;
   } catch {

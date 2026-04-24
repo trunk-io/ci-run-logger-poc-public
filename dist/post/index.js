@@ -25719,7 +25719,7 @@ async function fetchJobSteps() {
             return null;
         const data = (await res.json());
         const attemptNum = Number(attempt);
-        console.error(`[DEBUG] attempt=${attempt} (${typeof attempt}), attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`);
+        console.log(`[DEBUG] attempt=${attempt} (${typeof attempt}), attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`);
         // Post hooks run after all steps complete, so the job may have transitioned
         // from in_progress to completed by the time we query. Try in_progress first,
         // then fall back to matching by job name (normalized from GITHUB_JOB).
@@ -25728,7 +25728,7 @@ async function fetchJobSteps() {
                 ? data.jobs.find((j) => j.run_attempt === attemptNum &&
                     normalizeJobName(j.name) === normalizeJobName(ciJobName))
                 : undefined);
-        console.error(`[DEBUG] matched job: ${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
+        console.log(`[DEBUG] matched job: ${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
         return job?.steps ?? null;
     }
     catch {
