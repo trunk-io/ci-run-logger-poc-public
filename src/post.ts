@@ -1,4 +1,7 @@
 import * as core from "@actions/core";
+import { execSync } from "child_process";
+import { readdirSync, readFileSync } from "fs";
+import * as path from "path";
 
 // POC values — final schema should reconcile with TRD branch_class enum before production ingestion
 function branchClass(trigger: string, branch: string): string {
@@ -7,6 +10,8 @@ function branchClass(trigger: string, branch: string): string {
   if (trigger === "merge_group") return "merge_queue";
   return "other";
 }
+
+// ── GitHub API ────────────────────────────────────────────────────────────────
 
 type ApiStep = {
   number: number;
@@ -51,8 +56,7 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
 
     const data = (await res.json()) as JobsResponse;
     const job = data.jobs.find(
-      (j) =>
-        j.run_attempt === Number(attempt) && j.status === "in_progress",
+      (j) => j.run_attempt === Number(attempt) && j.status === "in_progress",
     );
     return job?.steps ?? null;
   } catch {
@@ -60,12 +64,57 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
   }
 }
 
+// ── Worker log sleuthing (ported from analytics-cli) ─────────────────────────
+
+function findWorkerLogFiles(): string[] {
+  try {
+    const ps = execSync("ps aux", { encoding: "utf8" });
+    const workerLine = ps
+      .split("\n")
+      .find((l) => l.includes("Runner.Worker"));
+    if (!workerLine) return [];
+
+    // Extract the path to the Runner.Worker executable
+    const match = workerLine.match(/(\S+Runner\.Worker)/);
+    if (!match) return [];
+
+    // Runner root is one level up from bin/ (e.g. /home/runner/runners/2.x.x/)
+    const runnerRoot = path.resolve(path.dirname(match[1]), "..");
+    const diagDir = path.join(runnerRoot, "_diag");
+
+    return readdirSync(diagDir)
+      .filter((f) => f.startsWith("Worker_") && f.endsWith(".log"))
+      .map((f) => path.join(diagDir, f));
+  } catch {
+    return [];
+  }
+}
+
+function readWorkerLogs(): string | null {
+  const logFiles = findWorkerLogFiles();
+  if (logFiles.length === 0) return null;
+
+  // Read the most recent log file (last alphabetically — they're timestamped)
+  const logFile = logFiles.sort().at(-1)!;
+  try {
+    return readFileSync(logFile, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
 (async () => {
   const branch = core.getState("branch");
   const trigger = core.getState("trigger");
   const attempt = core.getState("attempt");
   const conclusion = process.env.CI_RUN_CONCLUSION || null;
-  const steps = await fetchJobSteps();
+
+  const [steps, workerLog] = await Promise.all([
+    fetchJobSteps(),
+    Promise.resolve(readWorkerLogs()),
+  ]);
 
   console.log(
     JSON.stringify({
@@ -88,4 +137,14 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
       steps,
     }),
   );
+
+  console.log("\n=== GitHub API job steps ===");
+  console.log(JSON.stringify(steps, null, 2));
+
+  console.log("\n=== Runner worker log ===");
+  if (workerLog !== null) {
+    console.log(workerLog);
+  } else {
+    console.log("(not found — Runner.Worker process or _diag dir not accessible)");
+  }
 })().catch(console.error);
