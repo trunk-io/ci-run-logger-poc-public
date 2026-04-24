@@ -25696,6 +25696,9 @@ function branchClass(trigger, branch) {
 const branch = core.getState("branch");
 const trigger = core.getState("trigger");
 const attempt = core.getState("attempt");
+// conclusion is written by a separate `if: always()` run step earlier in the job:
+//   echo "CI_RUN_CONCLUSION=${{ job.status }}" >> "$GITHUB_ENV"
+const conclusion = process.env.CI_RUN_CONCLUSION || null;
 console.log(JSON.stringify({
     event: "ci_run_end",
     ci_job_name: core.getState("ci_job_name") || null,
@@ -25709,8 +25712,7 @@ console.log(JSON.stringify({
     provider: "github",
     start: core.getState("start_time") || null,
     end: new Date().toISOString(),
-    conclusion: null,
-    conclusion_note: "job.status is not available as an env var in post hooks; requires a separate if:always() step to pass ${{ job.status }} as an input",
+    conclusion,
     failure_type: null,
     failure_type_note: "not a GitHub Actions concept; must be inferred from logs or test results",
 }));

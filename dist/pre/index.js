@@ -25683,26 +25683,42 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
+const fs_1 = __nccwpck_require__(9896);
+const trigger = process.env.GITHUB_EVENT_NAME ?? "";
+const eventPath = process.env.GITHUB_EVENT_PATH ?? "";
+// For PR events, GITHUB_SHA is the ephemeral merge commit — read the actual head SHA from the event payload
+let sha = process.env.GITHUB_SHA ?? null;
+if (trigger === "pull_request" && eventPath) {
+    try {
+        const event = JSON.parse((0, fs_1.readFileSync)(eventPath, "utf8"));
+        sha = event.pull_request?.head?.sha ?? sha;
+    }
+    catch {
+        // fall back to GITHUB_SHA
+    }
+}
+// For PR events, GITHUB_REF_NAME is the merge ref (e.g. "3731/merge") — GITHUB_HEAD_REF is the actual branch name
+const branch = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || null;
 const startTime = new Date().toISOString();
 core.saveState("start_time", startTime);
 core.saveState("ci_job_name", process.env.GITHUB_JOB ?? "");
 core.saveState("workflow_name", process.env.GITHUB_WORKFLOW ?? "");
-core.saveState("sha", process.env.GITHUB_SHA ?? "");
+core.saveState("sha", sha ?? "");
 core.saveState("run_id", process.env.GITHUB_RUN_ID ?? "");
 core.saveState("attempt", process.env.GITHUB_RUN_ATTEMPT ?? "");
-core.saveState("branch", process.env.GITHUB_REF_NAME ?? "");
-core.saveState("trigger", process.env.GITHUB_EVENT_NAME ?? "");
+core.saveState("branch", branch ?? "");
+core.saveState("trigger", trigger);
 console.log(JSON.stringify({
     event: "ci_run_start",
     ci_job_name: process.env.GITHUB_JOB ?? null,
     workflow_name: process.env.GITHUB_WORKFLOW ?? null,
-    sha: process.env.GITHUB_SHA ?? null,
+    sha,
     run_id: process.env.GITHUB_RUN_ID ?? null,
     attempt: process.env.GITHUB_RUN_ATTEMPT
         ? Number(process.env.GITHUB_RUN_ATTEMPT)
         : null,
-    branch: process.env.GITHUB_REF_NAME ?? null,
-    trigger: process.env.GITHUB_EVENT_NAME ?? null,
+    branch,
+    trigger: trigger || null,
     start: startTime,
 }));
 
