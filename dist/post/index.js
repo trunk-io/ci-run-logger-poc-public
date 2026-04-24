@@ -25770,16 +25770,49 @@ function readWorkerLogs() {
         return null;
     }
 }
+// Map runner-internal result names to GitHub API conclusion values.
+// Runner uses Title Case (Succeeded/Failed/Cancelled); API uses lowercase.
+function normalizeResult(result) {
+    if (result === "Succeeded")
+        return "success";
+    if (result === "Failed")
+        return "failure";
+    return result.toLowerCase();
+}
+function extractConclusionFromWorkerLog(log) {
+    // The runner logs one of two patterns after each step completes:
+    //   "Updating job result with current step result 'X'."
+    //     → step X degraded the job result (e.g. Succeeded → Failed)
+    //   "No need for updating job result with current step result 'X'."
+    //     → step X didn't change the job result (already at X or worse)
+    //
+    // Note: continue-on-error steps are converted to Succeeded before this
+    // logging, so we correctly treat them as non-failures.
+    // If any step updated the job to a non-success result, that's the conclusion.
+    const updateMatches = [
+        ...log.matchAll(/StepsRunner\] Updating job result with current step result '(\w+)'/g),
+    ];
+    if (updateMatches.length > 0) {
+        return normalizeResult(updateMatches[updateMatches.length - 1][1]);
+    }
+    // No updates: check there are "No need for" lines confirming a clean run.
+    if (/StepsRunner\] No need for updating job result/.test(log)) {
+        return "success";
+    }
+    return null;
+}
 // ── Main ──────────────────────────────────────────────────────────────────────
 (async () => {
     const branch = core.getState("branch");
     const trigger = core.getState("trigger");
     const attempt = core.getState("attempt");
-    const conclusion = process.env.CI_RUN_CONCLUSION || null;
     const [steps, workerLog] = await Promise.all([
         fetchJobSteps(),
         Promise.resolve(readWorkerLogs()),
     ]);
+    const conclusion = workerLog
+        ? extractConclusionFromWorkerLog(workerLog)
+        : null;
     console.log(JSON.stringify({
         event: "ci_run_end",
         ci_job_name: core.getState("ci_job_name") || null,
