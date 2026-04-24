@@ -46,7 +46,14 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
   const attempt = core.getState("attempt");
   const ciJobName = core.getState("ci_job_name");
 
-  if (!token || !repo || !runId || !attempt) return null;
+  console.log(
+    `[DEBUG-PRE-GUARD] token=${!!token}, repo=${repo}, runId=${runId}, attempt="${attempt}", ciJobName="${ciJobName}"`,
+  );
+
+  if (!token || !repo || !runId || !attempt) {
+    console.log(`[DEBUG-GUARD-FAIL] bailing early`);
+    return null;
+  }
 
   try {
     const res = await fetch(
@@ -58,13 +65,14 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
         },
       },
     );
+    console.log(`[DEBUG-FETCH] res.ok=${res.ok} status=${res.status}`);
     if (!res.ok) return null;
 
     const data = (await res.json()) as JobsResponse;
     const attemptNum = Number(attempt);
 
     console.log(
-      `[DEBUG] attempt=${attempt} (${typeof attempt}), attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`,
+      `[DEBUG-DATA] attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`,
     );
 
     // Post hooks run after all steps complete, so the job may have transitioned
@@ -82,10 +90,13 @@ async function fetchJobSteps(): Promise<ApiStep[] | null> {
           )
         : undefined);
 
-    console.log(`[DEBUG] matched job: ${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
+    console.log(
+      `[DEBUG-MATCH] job=${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`,
+    );
 
     return job?.steps ?? null;
-  } catch {
+  } catch (e) {
+    console.log(`[DEBUG-CATCH] ${e}`);
     return null;
   }
 }

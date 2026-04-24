@@ -25706,8 +25706,11 @@ async function fetchJobSteps() {
     const runId = core.getState("run_id");
     const attempt = core.getState("attempt");
     const ciJobName = core.getState("ci_job_name");
-    if (!token || !repo || !runId || !attempt)
+    console.log(`[DEBUG-PRE-GUARD] token=${!!token}, repo=${repo}, runId=${runId}, attempt="${attempt}", ciJobName="${ciJobName}"`);
+    if (!token || !repo || !runId || !attempt) {
+        console.log(`[DEBUG-GUARD-FAIL] bailing early`);
         return null;
+    }
     try {
         const res = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs?filter=latest`, {
             headers: {
@@ -25715,11 +25718,12 @@ async function fetchJobSteps() {
                 Accept: "application/vnd.github.v3+json",
             },
         });
+        console.log(`[DEBUG-FETCH] res.ok=${res.ok} status=${res.status}`);
         if (!res.ok)
             return null;
         const data = (await res.json());
         const attemptNum = Number(attempt);
-        console.log(`[DEBUG] attempt=${attempt} (${typeof attempt}), attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`);
+        console.log(`[DEBUG-DATA] attemptNum=${attemptNum}, ciJobName="${ciJobName}", jobs=${JSON.stringify(data.jobs.map((j) => ({ name: j.name, status: j.status, run_attempt: j.run_attempt, steps: j.steps?.length })))}`);
         // Post hooks run after all steps complete, so the job may have transitioned
         // from in_progress to completed by the time we query. Try in_progress first,
         // then fall back to matching by job name (normalized from GITHUB_JOB).
@@ -25728,10 +25732,11 @@ async function fetchJobSteps() {
                 ? data.jobs.find((j) => j.run_attempt === attemptNum &&
                     normalizeJobName(j.name) === normalizeJobName(ciJobName))
                 : undefined);
-        console.log(`[DEBUG] matched job: ${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
+        console.log(`[DEBUG-MATCH] job=${job ? JSON.stringify({ name: job.name, steps: job.steps?.length }) : "null"}`);
         return job?.steps ?? null;
     }
-    catch {
+    catch (e) {
+        console.log(`[DEBUG-CATCH] ${e}`);
         return null;
     }
 }
